@@ -1,8 +1,5 @@
 import turtle
-from typing import List, Tuple
-
-
-# TODO: rework scaling
+from typing import List, Tuple, Union
 
 
 class Diagram:
@@ -14,11 +11,17 @@ class Diagram:
     point_scale = 0.18
 
     # noinspection PyTypeChecker
-    def __init__(self, max_val: float = 1, min_val: float = 0):
-        if max_val <= min_val:
-            raise ValueError("max value should be greater than min value!")
+    def __init__(self,
+                 max_val: Union[float, None] = None,
+                 min_val: Union[float, None] = None):
+        self.certain_values = (max_val is not None), (min_val is not None)
         self.max_val = max_val
         self.min_val = min_val
+
+        if all(self.certain_values):
+            if max_val <= min_val:
+                raise ValueError("max value should be greater than min value!")
+
         self.pen: turtle.Turtle = None
         self.window: turtle.Screen = None
         self.points: List[float] = list()
@@ -30,18 +33,39 @@ class Diagram:
         self.active = True
         self.pen = turtle.Turtle()
         self.window = turtle.Screen()
-        self.window.title("Diagram")
+        self.window.title(f"Diagram {__name__}")
         self.window.tracer(0)
         self.window.setup(*Diagram.screensize)
 
     def add(self, point: float):
-        if not (self.min_val <= point <= self.max_val):
-            raise ValueError("\"point\" parameter should be in settled range. ([min_val;max_val] params)")
-        self.points.append(point / (self.max_val - self.min_val))
+        if self.max_val is None:
+            self.max_val = point
+        if self.min_val is None:
+            self.min_val = point
+
+        if point > self.max_val and not self.certain_values[0]:
+            self.max_val = point
+        elif point < self.min_val and not self.certain_values[1]:
+            self.min_val = point
+        else:
+            raise ValueError(f"\"point\" parameter should be in given range. ('min_val, max_val' params)\ngiven: "
+                             f"min_val={self.min_val}, max_val={self.max_val}")
+
+        if all(self.certain_values):
+            self.points.append((point - self.min_val) / (self.max_val - self.min_val))
+        else:
+            self.points.append(point)
+
+    def reweigh_points(self):
+        diff = self.max_val - self.min_val
+        for i in range(len(self.points)):
+            self.points[i] = (self.points[i] - self.min_val) / diff
 
     def display(self):
         if not len(self.points):
             raise ValueError("No points to display")
+        if not all(self.certain_values):
+            self.reweigh_points()
         self.init_screen()
         self.pen.clear()
         self.draw_plane()
@@ -84,7 +108,7 @@ class Diagram:
         self.pen.color('black')
         average = sum(self.points) / len(self.points)
         average = round(100 * average, 2)
-        self.pen.write(f"Average: {average}%")
+        self.pen.write(f"Average: {average}")
 
         self.reset()
 
@@ -140,21 +164,28 @@ class Diagram:
         width_share = 15
 
         def draw_line():
+            heading = pen.heading()
+            width = pen.width()
+            line_color = pen.color()
             pen.setheading(0)
             pen.color("grey")
             pen.width(1)
-            pen.forward(Diagram.size[0])
+            pen.back(5)
+            pen.forward(Diagram.size[0] + 5)
             pen.back(Diagram.size[0])
+            pen.setheading(heading)
+            pen.width(width)
+            pen.color(*line_color)
 
         def draw_mark():
-            width = 6
+            mark_length = 6
 
             pen.width(1)
             pen.left(90)
-            pen.forward(width / 2)
-            pen.back(width)
+            pen.forward(mark_length / 2)
+            pen.back(mark_length)
             pen.left(180)
-            pen.back(width / 2)
+            pen.back(mark_length / 2)
             pen.left(90)
             pen.width(2)
 
@@ -162,22 +193,20 @@ class Diagram:
         pen.shape("classic")
         pen.down()
 
+        pen.setheading(90)
+        pen.width(2)
+        pen.color("black")
+        pen.write(str(round(self.min_val, 2)) + " ", align="right")
         height = Diagram.size[1]
         step = height // height_share
-        percent = 0.0
+        share = self.min_val
         for i in range(0, height, step):
-            percent += 10
-            pen.color("black")
-            pen.setheading(90)
-            pen.width(2)
+            share += (self.max_val - self.min_val) / 10
             pen.forward(step)
-            pen.write(f"{percent}%", align="right")
+            pen.write(str(round(share, 2)) + " ", align="right")
 
             draw_line()
 
-        pen.color("black")
-        pen.setheading(90)
-        pen.width(2)
         pen.forward(step / 2)
         pen.stamp()
 
