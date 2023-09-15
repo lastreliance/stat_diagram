@@ -1,5 +1,5 @@
 import turtle
-from typing import List, Tuple, Union
+from typing import List, Tuple, Optional
 
 
 class Diagram:
@@ -12,11 +12,15 @@ class Diagram:
 
     # noinspection PyTypeChecker
     def __init__(self,
-                 max_val: Union[float, None] = None,
-                 min_val: Union[float, None] = None):
+                 max_val: Optional[float] = None,
+                 min_val: Optional[float] = None,
+                 name: str = "diagram",
+                 slow_mo: bool = False):
         self.certain_values = (max_val is not None), (min_val is not None)
         self.max_val = max_val
         self.min_val = min_val
+        self.name = name
+        self.slow_mo = slow_mo
 
         if all(self.certain_values):
             if max_val <= min_val:
@@ -33,8 +37,11 @@ class Diagram:
         self.active = True
         self.pen = turtle.Turtle()
         self.window = turtle.Screen()
-        self.window.title(f"Diagram {__name__}")
-        self.window.tracer(0)
+        self.window.title(f"Diagram {self.name}")
+        if not self.slow_mo:
+            self.window.tracer(0)
+        else:
+            self.window.tracer(1)
         self.window.setup(*Diagram.screensize)
 
     def add(self, point: float):
@@ -42,14 +49,14 @@ class Diagram:
             self.max_val = point
         if self.min_val is None:
             self.min_val = point
-
-        if point > self.max_val and not self.certain_values[0]:
-            self.max_val = point
-        elif point < self.min_val and not self.certain_values[1]:
-            self.min_val = point
-        else:
-            raise ValueError(f"\"point\" parameter should be in given range. ('min_val, max_val' params)\ngiven: "
-                             f"min_val={self.min_val}, max_val={self.max_val}")
+        if not (self.max_val >= point >= self.min_val):
+            if point > self.max_val and not self.certain_values[0]:
+                self.max_val = point
+            elif point < self.min_val and not self.certain_values[1]:
+                self.min_val = point
+            else:
+                raise ValueError(f"\"point\" parameter should be in given range. ('min_val, max_val' params)\ngiven: "
+                                 f"min_val={self.min_val}, max_val={self.max_val}, point={point}")
 
         if all(self.certain_values):
             self.points.append((point - self.min_val) / (self.max_val - self.min_val))
@@ -79,7 +86,6 @@ class Diagram:
         self.pen.shapesize(Diagram.point_scale, Diagram.point_scale)
         self.pen.stamp()
         self.pen.down()
-        self.window.tracer(0)
 
         if len(self.points) > Diagram.max_points:
             index = int()
